@@ -1,0 +1,7 @@
+docker-compose.yaml
+.env
+.git
+.gitignore
+.dockerignore
+.env.example
+payment-processor
