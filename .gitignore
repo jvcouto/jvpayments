@@ -19,3 +19,6 @@ go.work.sum
 .env
 
 payment-processor
+
+
+.DS_Store

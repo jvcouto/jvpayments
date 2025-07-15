@@ -15,7 +15,7 @@ func PaymentsSummary(w http.ResponseWriter, r *http.Request) {
 
 	response := map[string]any{
 		"summary": map[string]any{
-			"default": map[string]any{x
+			"default": map[string]any{
 				"totalRequests": 43236,
 				"totalAmount":   415542345.98,
 			},

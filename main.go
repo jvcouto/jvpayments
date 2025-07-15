@@ -3,16 +3,34 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"jvpayments/cache"
 	"jvpayments/handlers"
+	redis_client "jvpayments/redis"
+	"jvpayments/workers"
 )
 
 func main() {
-	if err := cache.InitRedis(); err != nil {
+	if err := redis_client.InitRedis(); err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
-	defer cache.CloseRedis()
+	defer redis_client.CloseRedis()
+
+	paymentWorker := workers.NewPaymentWorker()
+	go paymentWorker.Start()
+
+	// Setup graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		log.Println("Shutting down gracefully...")
+		paymentWorker.Stop()
+		os.Exit(0)
+	}()
 
 	mux := http.NewServeMux()
 

@@ -10,6 +10,9 @@ type Config struct {
 	RedisPort     string
 	RedisPassword string
 	RedisDb       string
+
+	PaymentApiUrl         string
+	PaymentApiFallbackUrl string
 }
 
 func LoadConfig() Config {
@@ -18,6 +21,9 @@ func LoadConfig() Config {
 		RedisPort:     getEnv("REDIS_PORT", "6379"),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDb:       getEnv("REDIS_DB", "0"),
+
+		PaymentApiUrl:         getEnv("PAYMENT_API_URL", "http://localhost.com:8001"),
+		PaymentApiFallbackUrl: getEnv("PAYMENT_API_FALLBACK_URL", "http://localhost.com:8002"),
 	}
 }
 
