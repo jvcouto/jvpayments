@@ -24,7 +24,8 @@ func Payments(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-	paymentQueue := queue.NewPaymentQueue()
+	paymentQueue := queue.NewRedisPaymentQueue(queue.PaymentFallabackQueueName)
+
 	if err := paymentQueue.PublishPaymentJob(paymentReq); err != nil {
 		http.Error(w, `{"error": "Failed to queue payment job"}`, http.StatusInternalServerError)
 		return

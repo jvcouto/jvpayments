@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	PaymentQueueName = "payment:jobs"
-	JobTimeout       = 30 * time.Second
+	PaymentQueueName          = "payment:jobs"
+	PaymentFallabackQueueName = "payment:jobs:fallback"
+	JobTimeout                = 30 * time.Second
 )
 
 // PaymentJob represents a payment job in the queue
@@ -25,20 +26,19 @@ type PaymentJob struct {
 	MaxRetries  int                  `json:"max_retries"`
 }
 
-// PaymentQueue handles payment job operations
-type PaymentQueue struct {
+type RedisPaymentQueue struct {
 	redisClient *redis.Client
+	queueName   string
 }
 
-// NewPaymentQueue creates a new payment queue instance
-func NewPaymentQueue() *PaymentQueue {
-	return &PaymentQueue{
+func NewRedisPaymentQueue(queueName string) *RedisPaymentQueue {
+	return &RedisPaymentQueue{
 		redisClient: redis_client.RedisClient,
+		queueName:   queueName,
 	}
 }
 
-// PublishPaymentJob publishes a payment job to the queue
-func (pq *PaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) error {
+func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) error {
 	job := PaymentJob{
 		ID:          generateJobID(),
 		PaymentData: paymentReq,
@@ -47,59 +47,40 @@ func (pq *PaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) error
 		MaxRetries:  3,
 	}
 
-	// Marshal the job to JSON
 	jobData, err := json.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payment job: %w", err)
 	}
 
-	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
 	defer cancel()
 
-	// Push the job to the Redis queue
-	err = pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
+	err = pq.redisClient.LPush(ctx, pq.queueName, jobData).Err()
 	if err != nil {
-		return fmt.Errorf("failed to publish payment job: %w", err)
+		return fmt.Errorf("failed to publish payment job to queue %s: %w", pq.queueName, err)
 	}
 
 	return nil
 }
 
-// ConsumePaymentJob consumes a payment job from the queue
-func (pq *PaymentQueue) ConsumePaymentJob() (*PaymentJob, error) {
+func (pq *RedisPaymentQueue) ConsumePaymentJob() (*PaymentJob, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
 	defer cancel()
 
-	// Pop a job from the queue (blocking operation)
-	result, err := pq.redisClient.BRPop(ctx, 0, PaymentQueueName).Result()
+	result, err := pq.redisClient.BRPop(ctx, 0, pq.queueName).Result()
 	if err != nil {
-		return nil, fmt.Errorf("failed to consume payment job: %w", err)
+		return nil, fmt.Errorf("failed to consume payment job from queue %s: %w", pq.queueName, err)
 	}
 
-	if len(result) < 2 {
-		return nil, fmt.Errorf("invalid queue result")
-	}
-
-	// Parse the job data
 	var job PaymentJob
 	if err := json.Unmarshal([]byte(result[1]), &job); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal payment job: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal payment job from queue %s: %w", pq.queueName, err)
 	}
 
 	return &job, nil
 }
 
-// GetQueueLength returns the current length of the payment queue
-func (pq *PaymentQueue) GetQueueLength() (int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	return pq.redisClient.LLen(ctx, PaymentQueueName).Result()
-}
-
-// RequeueJob puts a job back in the queue for retry
-func (pq *PaymentQueue) RequeueJob(job *PaymentJob) error {
+func (pq *RedisPaymentQueue) RequeueJob(job *PaymentJob) error {
 	jobData, err := json.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal job for requeue: %w", err)
@@ -108,10 +89,9 @@ func (pq *PaymentQueue) RequeueJob(job *PaymentJob) error {
 	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
 	defer cancel()
 
-	return pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
+	return pq.redisClient.LPush(ctx, pq.queueName, jobData).Err()
 }
 
-// generateJobID generates a unique job ID
 func generateJobID() string {
 	return fmt.Sprintf("job_%d", time.Now().UnixNano())
 }

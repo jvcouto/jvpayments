@@ -7,57 +7,19 @@ import (
 	"time"
 )
 
-// PaymentWorker handles processing of payment jobs from the queue
-type PaymentWorker struct {
-	queue          *queue.PaymentQueue
+type DefaultWorkerBehavior struct {
+	queue          *queue.RedisPaymentQueue
 	paymentService *services.PaymentService
-	stopChan       chan struct{}
-	isRunning      bool
 }
 
-// NewPaymentWorker creates a new payment worker
-func NewPaymentWorker() *PaymentWorker {
-	return &PaymentWorker{
-		queue:          queue.NewPaymentQueue(),
-		paymentService: services.NewPaymentService(),
-		stopChan:       make(chan struct{}),
-		isRunning:      false,
+func NewDefaultWorkerBehavior(queue *queue.RedisPaymentQueue, paymentService *services.PaymentService) *DefaultWorkerBehavior {
+	return &DefaultWorkerBehavior{
+		queue:          queue,
+		paymentService: paymentService,
 	}
 }
 
-// Start begins processing payment jobs from the queue
-func (pw *PaymentWorker) Start() {
-	if pw.isRunning {
-		log.Println("Payment worker is already running")
-		return
-	}
-
-	pw.isRunning = true
-	log.Println("Payment worker started")
-
-	for {
-		select {
-		case <-pw.stopChan:
-			log.Println("Payment worker stopped")
-			return
-		default:
-			pw.processNextJob()
-		}
-	}
-}
-
-// Stop gracefully stops the payment worker
-func (pw *PaymentWorker) Stop() {
-	if !pw.isRunning {
-		return
-	}
-
-	pw.isRunning = false
-	close(pw.stopChan)
-}
-
-// processNextJob processes the next job from the queue
-func (pw *PaymentWorker) processNextJob() {
+func (pw *DefaultWorkerBehavior) ProcessNextJob() {
 	// Consume a job from the queue
 	job, err := pw.queue.ConsumePaymentJob()
 	if err != nil {
@@ -77,10 +39,10 @@ func (pw *PaymentWorker) processNextJob() {
 		if job.RetryCount < job.MaxRetries {
 			job.RetryCount++
 			log.Printf("Retrying payment job %s (attempt %d/%d)", job.ID, job.RetryCount, job.MaxRetries)
-			pw.requeueJob(job)
+			pw.RequeueJob(job)
 		} else {
 			log.Printf("Payment job %s failed after %d retries", job.ID, job.MaxRetries)
-			pw.handleFailedJob(job, err)
+			pw.HandleFailedJob(job, err)
 		}
 		return
 	}
@@ -89,7 +51,7 @@ func (pw *PaymentWorker) processNextJob() {
 }
 
 // requeueJob puts a job back in the queue for retry
-func (pw *PaymentWorker) requeueJob(job *queue.PaymentJob) error {
+func (pw *DefaultWorkerBehavior) RequeueJob(job *queue.PaymentJob) error {
 	// Add delay before requeuing (exponential backoff)
 	delay := time.Duration(job.RetryCount) * time.Second
 	time.Sleep(delay)
@@ -98,7 +60,7 @@ func (pw *PaymentWorker) requeueJob(job *queue.PaymentJob) error {
 }
 
 // handleFailedJob handles jobs that have failed all retry attempts
-func (pw *PaymentWorker) handleFailedJob(job *queue.PaymentJob, err error) {
+func (pw *DefaultWorkerBehavior) HandleFailedJob(job *queue.PaymentJob, err error) {
 	// TODO: Implement failed job handling
 	// - Log to error queue
 	// - Send notification

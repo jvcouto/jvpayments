@@ -3,13 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"jvpayments/handlers"
+	"jvpayments/queue"
 	redis_client "jvpayments/redis"
-	"jvpayments/workers"
+	"jvpayments/services"
+	workers "jvpayments/workers/payment"
 )
 
 func main() {
@@ -18,19 +17,23 @@ func main() {
 	}
 	defer redis_client.CloseRedis()
 
-	paymentWorker := workers.NewPaymentWorker()
-	go paymentWorker.Start()
+	defaultBehavior := workers.NewDefaultWorkerBehavior(
+		queue.NewRedisPaymentQueue(queue.PaymentQueueName),
+		services.NewPaymentService(),
+	)
 
-	// Setup graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	for i := 0; i < 10; i++ {
+		go workers.NewPaymentWorker(queue.PaymentQueueName, defaultBehavior).Start()
+	}
 
-	go func() {
-		<-sigChan
-		log.Println("Shutting down gracefully...")
-		paymentWorker.Stop()
-		os.Exit(0)
-	}()
+	fallbackBehavior := workers.NewDefaultWorkerBehavior(
+		queue.NewRedisPaymentQueue(queue.PaymentFallabackQueueName),
+		services.NewPaymentService(),
+	)
+
+	for i := 0; i < 10; i++ {
+		go workers.NewPaymentWorker(queue.PaymentFallabackQueueName, fallbackBehavior).Start()
+	}
 
 	mux := http.NewServeMux()
 
