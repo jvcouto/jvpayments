@@ -1,8 +1,16 @@
 package types
 
+import "time"
+
 type PaymentRequest struct {
-	Amount         int    `json:"amount"`
-	Correlation_Id string `json:"correlation_id"`
+	Amount        int    `json:"amount"`
+	CorrelationId string `json:"correlationId"`
+}
+
+type PaymentProcessorPayload struct {
+	Amount        int       `json:"amount"`
+	CorrelationId string    `json:"correlationId"`
+	RequestedAt   time.Time `json:"requestedAt"`
 }
 
 type PaymentResponse struct {
