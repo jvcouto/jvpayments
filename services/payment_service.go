@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"jvpayments/types"
+	"log"
 	"net/http"
 	"time"
 )
@@ -16,12 +17,14 @@ type PaymentService struct {
 func NewPaymentService() *PaymentService {
 	return &PaymentService{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 5 * time.Second,
 		},
 	}
 }
 
 func (ps *PaymentService) ProcessPayment(req types.PaymentRequest, apiUrl string) error {
+	log.Println("Requesting payment processor api")
+
 	payload := types.PaymentProcessorPayload{
 		Amount:        req.Amount,
 		CorrelationId: req.CorrelationId,
@@ -33,7 +36,7 @@ func (ps *PaymentService) ProcessPayment(req types.PaymentRequest, apiUrl string
 		return fmt.Errorf("failed to marshal payment request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(jsonPayload))
+	httpReq, err := http.NewRequest("POST", apiUrl+"/payments", bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}

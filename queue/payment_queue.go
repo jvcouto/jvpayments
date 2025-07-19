@@ -31,6 +31,17 @@ type RedisPaymentQueue struct {
 	queueName   string
 }
 
+func (pq *RedisPaymentQueue) GetMaxRetries() int {
+	switch pq.queueName {
+	case PaymentQueueName:
+		return 3
+	case PaymentFallabackQueueName:
+		return 1
+	default:
+		return 1
+	}
+}
+
 func NewRedisPaymentQueue(queueName string) *RedisPaymentQueue {
 	return &RedisPaymentQueue{
 		redisClient: redis_client.RedisClient,
@@ -44,7 +55,7 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) 
 		PaymentData: paymentReq,
 		CreatedAt:   time.Now(),
 		RetryCount:  0,
-		MaxRetries:  3,
+		MaxRetries:  pq.GetMaxRetries(),
 	}
 
 	jobData, err := json.Marshal(job)

@@ -45,7 +45,7 @@ func (pw *DefaultWorkerBehavior) ProcessNextJob() {
 		return
 	}
 
-	log.Printf("Successfully processed payment job %s: %s", job.ID)
+	log.Printf("Successfully processed payment job %s:", job.ID)
 }
 
 func (pw *DefaultWorkerBehavior) RequeueJob(job *queue.PaymentJob) error {

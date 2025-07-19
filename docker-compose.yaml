@@ -1,17 +1,46 @@
 version: '3.8'
 
+x-app-config: &app-config
+  build: .
+  expose:
+    - "9999"
+  depends_on:
+    redis:
+      condition: service_healthy
+  environment:
+    - REDIS_HOST=redis
+    - REDIS_PORT=6379
+  networks:
+    - payment-processor
+  deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "50MB"
+
 services:
-  app:
-    build: .
+  jvpayments-1:
+    <<: *app-config
+
+  jvpayments-2:
+    <<: *app-config
+
+  nginx:
+    image: nginx:alpine
     ports:
-      - "9999:9999"
+      - "9999:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - jvpayments-1
+      - jvpayments-2
     networks:
       - payment-processor
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "50MB"
 
   redis:
     image: redis:7-alpine
@@ -20,6 +49,16 @@ services:
     command: redis-server --appendonly yes
     networks:
       - payment-processor
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "200MB"
 
 networks:
   payment-processor:

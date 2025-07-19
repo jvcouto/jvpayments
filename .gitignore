@@ -19,6 +19,7 @@ go.work.sum
 .env
 
 payment-processor
+rinha-test
 
 
 .DS_Store

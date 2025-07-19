@@ -1,6 +1,7 @@
 package workers
 
 import (
+	"jvpayments/config"
 	"jvpayments/queue"
 	"jvpayments/services"
 	"log"
@@ -19,24 +20,20 @@ func NewFallbackWorkerBehavior(queue *queue.RedisPaymentQueue, paymentService *s
 	}
 }
 
-// processNextJob processes the next job from the queue
 func (pw *FallbackWorkerBehavior) ProcessNextJob() {
-	// Consume a job from the queue
+	config := config.LoadConfig()
 	job, err := pw.queue.ConsumePaymentJob()
 	if err != nil {
 		log.Printf("Error consuming payment job: %v", err)
-		time.Sleep(1 * time.Second) // Wait before retrying
 		return
 	}
 
 	log.Printf("Processing payment job: %s", job.ID)
 
-	// Process the payment
-	paymentResp, err := pw.paymentService.ProcessPayment(job.PaymentData)
+	err = pw.paymentService.ProcessPayment(job.PaymentData, config.PaymentApiUrl)
 	if err != nil {
 		log.Printf("Error processing payment job %s: %v", job.ID, err)
 
-		// Handle retry logic
 		if job.RetryCount < job.MaxRetries {
 			job.RetryCount++
 			log.Printf("Retrying payment job %s (attempt %d/%d)", job.ID, job.RetryCount, job.MaxRetries)
@@ -48,19 +45,16 @@ func (pw *FallbackWorkerBehavior) ProcessNextJob() {
 		return
 	}
 
-	log.Printf("Successfully processed payment job %s: %s", job.ID, paymentResp.ID)
+	log.Printf("Successfully processed payment job %s:", job.ID)
 }
 
-// requeueJob puts a job back in the queue for retry
 func (pw *FallbackWorkerBehavior) RequeueJob(job *queue.PaymentJob) error {
-	// Add delay before requeuing (exponential backoff)
 	delay := time.Duration(job.RetryCount) * time.Second
 	time.Sleep(delay)
 
 	return pw.queue.RequeueJob(job)
 }
 
-// handleFailedJob handles jobs that have failed all retry attempts
 func (pw *FallbackWorkerBehavior) HandleFailedJob(job *queue.PaymentJob, err error) {
 	// TODO: Implement failed job handling
 	// - Log to error queue
