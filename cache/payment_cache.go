@@ -3,9 +3,9 @@ package cache
 import (
 	"fmt"
 	redis_client "jvpayments/redis"
+	"time"
 
 	"context"
-	"strconv"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -26,7 +26,7 @@ func NewPaymentCache() *PaymentCache {
 	}
 }
 
-func (pc *PaymentCache) StorePayment(paymentService string, correlationId string, amount float64, requestedAt string) error {
+func (pc *PaymentCache) StorePayment(paymentService string, correlationId string, amount float64, requestedAt time.Time) error {
 
 	if paymentService != PaymentDefaultKey && paymentService != PaymentFallbackKey {
 		panic("Invalid payment service")
@@ -37,27 +37,26 @@ func (pc *PaymentCache) StorePayment(paymentService string, correlationId string
 
 	_, err := pc.redisClient.HSet(ctx, hashKey, map[string]interface{}{
 		"amount":      amount,
-		"requestedAt": requestedAt,
+		"requestedAt": requestedAt.Format(time.RFC3339),
 	}).Result()
 	if err != nil {
 		return err
 	}
-	score, err := strconv.ParseFloat(requestedAt, 64)
-	if err != nil {
-		return err
-	}
+
 	_, err = pc.redisClient.ZAdd(ctx, PaymentsByDateKey, redis.Z{
-		Score:  score,
+		Score:  float64(requestedAt.Unix()),
 		Member: hashKey,
 	}).Result()
 	return err
 }
 
-func (pc *PaymentCache) GetPaymentsByDateRange(start, end string) ([]string, error) {
+func (pc *PaymentCache) GetPaymentsByDateRange(start, end time.Time) ([]string, error) {
 	ctx := context.Background()
+	startScore := float64(start.Unix())
+	endScore := float64(end.Unix())
 	return pc.redisClient.ZRangeByScore(ctx, PaymentsByDateKey, &redis.ZRangeBy{
-		Min: start,
-		Max: end,
+		Min: fmt.Sprintf("%f", startScore),
+		Max: fmt.Sprintf("%f", endScore),
 	}).Result()
 }
 

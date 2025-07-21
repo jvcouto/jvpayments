@@ -33,7 +33,7 @@ func (pw *DefaultWorkerBehavior) ProcessNextJob() {
 
 	log.Printf("Processing payment job: %s", job.ID)
 
-	requestTime := time.Now().UTC().Format(time.RFC3339)
+	requestTime := time.Now().UTC()
 
 	err = pw.paymentService.ProcessPayment(job.PaymentData, config.PaymentApiUrl, requestTime)
 	if err != nil {
@@ -50,7 +50,12 @@ func (pw *DefaultWorkerBehavior) ProcessNextJob() {
 		return
 	}
 
-	pw.paymentCacheService.StorePayment(cache.PaymentDefaultKey, job.PaymentData.CorrelationId, job.PaymentData.Amount, requestTime)
+	err = pw.paymentCacheService.StorePayment(cache.PaymentDefaultKey, job.PaymentData.CorrelationId, job.PaymentData.Amount, requestTime)
+
+	if err != nil {
+		log.Printf("Error persisting payment: %v", err)
+	}
+
 	log.Printf("Successfully processed payment job %s:", job.ID)
 }
 

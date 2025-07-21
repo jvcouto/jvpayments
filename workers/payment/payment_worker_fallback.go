@@ -33,7 +33,7 @@ func (pw *FallbackWorkerBehavior) ProcessNextJob() {
 
 	log.Printf("Processing payment job: %s", job.ID)
 
-	requestTime := time.Now().UTC().Format(time.RFC3339)
+	requestTime := time.Now().UTC()
 
 	err = pw.paymentService.ProcessPayment(job.PaymentData, config.PaymentApiUrl, requestTime)
 	if err != nil {

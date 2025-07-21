@@ -24,19 +24,19 @@ func main() {
 		cache.NewPaymentCache(),
 	)
 
-	for range 50 {
+	for range 10 {
 		go workers.NewPaymentWorker(queue.PaymentQueueName, defaultBehavior).Start()
 	}
 
-	fallbackBehavior := workers.NewDefaultWorkerBehavior(
-		queue.NewRedisPaymentQueue(queue.PaymentFallabackQueueName),
-		services.NewPaymentService(),
-		cache.NewPaymentCache(),
-	)
+	// fallbackBehavior := workers.NewDefaultWorkerBehavior(
+	// 	queue.NewRedisPaymentQueue(queue.PaymentFallabackQueueName),
+	// 	services.NewPaymentService(),
+	// 	cache.NewPaymentCache(),
+	// )
 
-	for range 10 {
-		go workers.NewPaymentWorker(queue.PaymentFallabackQueueName, fallbackBehavior).Start()
-	}
+	// for range 10 {
+	// 	go workers.NewPaymentWorker(queue.PaymentFallabackQueueName, fallbackBehavior).Start()
+	// }
 
 	mux := http.NewServeMux()
 

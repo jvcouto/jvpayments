@@ -5,6 +5,7 @@ import (
 	"jvpayments/cache"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -17,55 +18,63 @@ func PaymentsSummary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
-	var from, to string
+	var from, to time.Time
 
 	if fromStr := q.Get("from"); fromStr != "" {
-		from = fromStr
+		fromTimeStamp, err := time.Parse(time.RFC3339, fromStr)
+		if err != nil {
+			http.Error(w, `{"error": "Invalid 'from' timestamp"}`, http.StatusBadRequest)
+			return
+		}
+		from = fromTimeStamp
 	} else {
-		from = time.Unix(0, 0).Format(time.RFC3339)
+		from = time.Unix(0, 0)
 	}
 
 	if toStr := q.Get("to"); toStr != "" {
-		to = toStr
+		toTimeStamp, err := time.Parse(time.RFC3339, toStr)
+		if err != nil {
+			http.Error(w, `{"error": "Invalid 'from' timestamp"}`, http.StatusBadRequest)
+			return
+		}
+		to = toTimeStamp
 	} else {
-		to = time.Now().Format(time.RFC3339)
+		to = time.Now()
 	}
 
 	paymentCacheService := cache.NewPaymentCache()
 	result := map[string]any{}
 
-	for _, paymentService := range []string{cache.PaymentDefaultKey, cache.PaymentFallbackKey} {
-		payments, err := paymentCacheService.GetPaymentsByDateRange(from, to)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, `{"error": "Failed to query payments"}`, http.StatusInternalServerError)
-			return
-		}
-		log.Println(payments)
-		log.Println(paymentService)
+	payments, err := paymentCacheService.GetPaymentsByDateRange(from, to)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, `{"error": "Failed to query payments"}`, http.StatusInternalServerError)
+		return
+	}
 
-		// totalRequests := 0
-		// totalAmount := 0.0
-		// for _, id := range payments {
-		// 	if len(id) < len(svc)+1 || id[:len(svc)] != svc {
-		// 		continue // skip if not this service
-		// 	}
-		// 	payment, err := paymentCacheService.GetPayment(svc, id[len(svc)+1:])
-		// 	if err != nil || len(payment) == 0 {
-		// 		continue
-		// 	}
-		// 	amount, _ := strconv.ParseFloat(payment["amount"], 64)
-		// 	totalAmount += amount
-		// 	totalRequests++
-		// }
-		// key := "default"
-		// if svc == cache.PaymentFallbackKey {
-		// 	key = "fallback"
-		// }
-		// result[key] = map[string]any{
-		// 	"totalRequests": totalRequests,
-		// 	"totalAmount":   totalAmount,
-		// }
+	for _, paymentService := range []string{cache.PaymentDefaultKey, cache.PaymentFallbackKey} {
+		totalRequests := 0
+		totalAmount := 0.0
+		for _, payment := range payments {
+			if len(payment) < len(paymentService)+1 || payment[:len(paymentService)] != paymentService {
+				continue
+			}
+			payment, err := paymentCacheService.GetPayment(paymentService, payment[len(paymentService)+1:])
+			if err != nil || len(payment) == 0 {
+				continue
+			}
+			amount, _ := strconv.ParseFloat(payment["amount"], 64)
+			totalAmount += amount
+			totalRequests++
+		}
+		key := "default"
+		if paymentService == cache.PaymentFallbackKey {
+			key = "fallback"
+		}
+		result[key] = map[string]any{
+			"totalRequests": totalRequests,
+			"totalAmount":   totalAmount,
+		}
 	}
 
 	json.NewEncoder(w).Encode(result)
