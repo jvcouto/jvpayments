@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"jvpayments/queue"
 	"jvpayments/types"
+	"log"
 	"net/http"
 )
 
 func Payments(w http.ResponseWriter, r *http.Request) {
+	log.Println("Starting processing new payment")
+
 	if r.Method != "POST" {
 		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
 		return
@@ -24,9 +27,14 @@ func Payments(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-	paymentQueue := queue.NewRedisPaymentQueue(queue.PaymentFallabackQueueName)
+	/*
+		se serviço default ok = serviço defalut
+		se servico default false e fallback true = fallback
+		se os 2 serviços estiverem false
+	*/
+	defaultPaymentQueue := queue.NewRedisPaymentQueue(queue.PaymentQueueName)
 
-	if err := paymentQueue.PublishPaymentJob(paymentReq); err != nil {
+	if err := defaultPaymentQueue.PublishPaymentJob(paymentReq); err != nil {
 		http.Error(w, `{"error": "Failed to queue payment job"}`, http.StatusInternalServerError)
 		return
 	}

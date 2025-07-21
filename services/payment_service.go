@@ -22,13 +22,13 @@ func NewPaymentService() *PaymentService {
 	}
 }
 
-func (ps *PaymentService) ProcessPayment(req types.PaymentRequest, apiUrl string) error {
+func (ps *PaymentService) ProcessPayment(req types.PaymentRequest, apiUrl string, requestTime string) error {
 	log.Println("Requesting payment processor api")
 
 	payload := types.PaymentProcessorPayload{
 		Amount:        req.Amount,
 		CorrelationId: req.CorrelationId,
-		RequestedAt:   time.Now().UTC(),
+		RequestedAt:   requestTime,
 	}
 
 	jsonPayload, err := json.Marshal(payload)

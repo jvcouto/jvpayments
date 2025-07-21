@@ -17,11 +17,9 @@ const (
 	JobTimeout                = 30 * time.Second
 )
 
-// PaymentJob represents a payment job in the queue
 type PaymentJob struct {
 	ID          string               `json:"id"`
 	PaymentData types.PaymentRequest `json:"payment_data"`
-	CreatedAt   time.Time            `json:"created_at"`
 	RetryCount  int                  `json:"retry_count"`
 	MaxRetries  int                  `json:"max_retries"`
 }
@@ -53,7 +51,6 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) 
 	job := PaymentJob{
 		ID:          generateJobID(),
 		PaymentData: paymentReq,
-		CreatedAt:   time.Now(),
 		RetryCount:  0,
 		MaxRetries:  pq.GetMaxRetries(),
 	}

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"jvpayments/cache"
 	"jvpayments/handlers"
 	"jvpayments/queue"
 	redis_client "jvpayments/redis"
@@ -20,18 +21,20 @@ func main() {
 	defaultBehavior := workers.NewDefaultWorkerBehavior(
 		queue.NewRedisPaymentQueue(queue.PaymentQueueName),
 		services.NewPaymentService(),
+		cache.NewPaymentCache(),
 	)
 
-	for i := 0; i < 10; i++ {
+	for range 50 {
 		go workers.NewPaymentWorker(queue.PaymentQueueName, defaultBehavior).Start()
 	}
 
 	fallbackBehavior := workers.NewDefaultWorkerBehavior(
 		queue.NewRedisPaymentQueue(queue.PaymentFallabackQueueName),
 		services.NewPaymentService(),
+		cache.NewPaymentCache(),
 	)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go workers.NewPaymentWorker(queue.PaymentFallabackQueueName, fallbackBehavior).Start()
 	}
 

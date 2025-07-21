@@ -1,6 +1,7 @@
 package workers
 
 import (
+	"jvpayments/cache"
 	"jvpayments/config"
 	"jvpayments/queue"
 	"jvpayments/services"
@@ -9,14 +10,16 @@ import (
 )
 
 type DefaultWorkerBehavior struct {
-	queue          *queue.RedisPaymentQueue
-	paymentService *services.PaymentService
+	queue               *queue.RedisPaymentQueue
+	paymentService      *services.PaymentService
+	paymentCacheService *cache.PaymentCache
 }
 
-func NewDefaultWorkerBehavior(queue *queue.RedisPaymentQueue, paymentService *services.PaymentService) *DefaultWorkerBehavior {
+func NewDefaultWorkerBehavior(queue *queue.RedisPaymentQueue, paymentService *services.PaymentService, paymentCacheService *cache.PaymentCache) *DefaultWorkerBehavior {
 	return &DefaultWorkerBehavior{
-		queue:          queue,
-		paymentService: paymentService,
+		queue:               queue,
+		paymentService:      paymentService,
+		paymentCacheService: paymentCacheService,
 	}
 }
 
@@ -30,7 +33,9 @@ func (pw *DefaultWorkerBehavior) ProcessNextJob() {
 
 	log.Printf("Processing payment job: %s", job.ID)
 
-	err = pw.paymentService.ProcessPayment(job.PaymentData, config.PaymentApiUrl)
+	requestTime := time.Now().UTC().Format(time.RFC3339)
+
+	err = pw.paymentService.ProcessPayment(job.PaymentData, config.PaymentApiUrl, requestTime)
 	if err != nil {
 		log.Printf("Error processing payment job %s: %v", job.ID, err)
 
@@ -45,6 +50,7 @@ func (pw *DefaultWorkerBehavior) ProcessNextJob() {
 		return
 	}
 
+	pw.paymentCacheService.StorePayment(cache.PaymentDefaultKey, job.PaymentData.CorrelationId, job.PaymentData.Amount, requestTime)
 	log.Printf("Successfully processed payment job %s:", job.ID)
 }
 
