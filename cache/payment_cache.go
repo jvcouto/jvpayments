@@ -33,19 +33,21 @@ func (pc *PaymentCache) StorePayment(paymentService string, correlationId string
 	}
 
 	ctx := context.Background()
-	hashKey := fmt.Sprintf("%s:%s", paymentService, correlationId)
 
-	_, err := pc.redisClient.HSet(ctx, hashKey, map[string]interface{}{
-		"amount":      amount,
-		"requestedAt": requestedAt.Format(time.RFC3339),
-	}).Result()
-	if err != nil {
-		return err
-	}
+	// hashKey := fmt.Sprintf("%s:%s", paymentService, correlationId)
+	// _, err := pc.redisClient.HSet(ctx, hashKey, map[string]interface{}{
+	// 	"amount":      amount,
+	// 	"requestedAt": requestedAt.Format(time.RFC3339),
+	// }).Result()
+	// if err != nil {
+	// 	return err
+	// }
 
-	_, err = pc.redisClient.ZAdd(ctx, PaymentsByDateKey, redis.Z{
+	scoreMember := fmt.Sprintf("%s:%s:%f", paymentService, correlationId, amount)
+
+	_, err := pc.redisClient.ZAdd(ctx, PaymentsByDateKey, redis.Z{
 		Score:  float64(requestedAt.Unix()),
-		Member: hashKey,
+		Member: scoreMember,
 	}).Result()
 	return err
 }

@@ -24,7 +24,7 @@ func main() {
 		cache.NewPaymentCache(),
 	)
 
-	for range 10 {
+	for range 20 {
 		go workers.NewPaymentWorker(queue.PaymentQueueName, defaultBehavior).Start()
 	}
 

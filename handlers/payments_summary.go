@@ -56,14 +56,13 @@ func PaymentsSummary(w http.ResponseWriter, r *http.Request) {
 		totalRequests := 0
 		totalAmount := 0.0
 		for _, payment := range payments {
+
 			if len(payment) < len(paymentService)+1 || payment[:len(paymentService)] != paymentService {
 				continue
 			}
-			payment, err := paymentCacheService.GetPayment(paymentService, payment[len(paymentService)+1:])
-			if err != nil || len(payment) == 0 {
-				continue
-			}
-			amount, _ := strconv.ParseFloat(payment["amount"], 64)
+
+			paymentValue := payment[len(paymentService)+1+36+1:]
+			amount, _ := strconv.ParseFloat(paymentValue, 64)
 			totalAmount += amount
 			totalRequests++
 		}
