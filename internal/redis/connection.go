@@ -3,7 +3,7 @@ package redis_client
 import (
 	"context"
 	"fmt"
-	"jvpayments/config"
+	"jvpayments/internal/config"
 	"log"
 	"time"
 
@@ -13,12 +13,11 @@ import (
 var RedisClient *redis.Client
 
 func InitRedis() error {
-	config := config.LoadConfig()
 
-	host := config.RedisHost
-	port := config.RedisPort
-	password := config.RedisPassword
-	database := config.RedisDb
+	host := config.CONFIG.RedisHost
+	port := config.CONFIG.RedisPort
+	password := config.CONFIG.RedisPassword
+	database := config.CONFIG.RedisDb
 
 	var db int
 	fmt.Sscanf(database, "%d", &db)

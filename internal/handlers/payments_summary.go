@@ -2,14 +2,24 @@ package handlers
 
 import (
 	"encoding/json"
-	"jvpayments/cache"
+	"jvpayments/internal/cache"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-func PaymentsSummary(w http.ResponseWriter, r *http.Request) {
+type PaymentSummaryHandler struct {
+	paymentCache *cache.PaymentCache
+}
+
+func NewPaymentSummaryHandler(paymentCache *cache.PaymentCache) *PaymentSummaryHandler {
+	return &PaymentSummaryHandler{
+		paymentCache: paymentCache,
+	}
+}
+
+func (psh *PaymentSummaryHandler) PaymentsSummary(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "GET" {
@@ -42,10 +52,9 @@ func PaymentsSummary(w http.ResponseWriter, r *http.Request) {
 		to = time.Now()
 	}
 
-	paymentCacheService := cache.NewPaymentCache()
 	result := map[string]any{}
 
-	payments, err := paymentCacheService.GetPaymentsByDateRange(from, to)
+	payments, err := psh.paymentCache.GetPaymentsByDateRange(from, to)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, `{"error": "Failed to query payments"}`, http.StatusInternalServerError)

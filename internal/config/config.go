@@ -15,9 +15,11 @@ type Config struct {
 	PaymentApiFallbackUrl string
 }
 
-func LoadConfig() Config {
-	return Config{
-		RedisHost:     getEnv("REDIS_HOST", "localhost"),
+var CONFIG Config
+
+func LoadConfig() {
+	CONFIG = Config{
+		RedisHost:     getEnv("REDIS_HOST", "rinha-de-backend-2025-redis-1"),
 		RedisPort:     getEnv("REDIS_PORT", "6379"),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDb:       getEnv("REDIS_DB", "0"),
@@ -25,6 +27,7 @@ func LoadConfig() Config {
 		PaymentApiUrl:         getEnv("PAYMENT_API_URL", "http://payment-processor-default:8080"),
 		PaymentApiFallbackUrl: getEnv("PAYMENT_API_FALLBACK_URL", "http://payment-processor-fallback:8080"),
 	}
+
 }
 
 func getEnv(key, defaultVal string) string {

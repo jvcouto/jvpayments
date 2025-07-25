@@ -2,7 +2,8 @@ package cache
 
 import (
 	"fmt"
-	redis_client "jvpayments/redis"
+	redis_client "jvpayments/internal/redis"
+	"jvpayments/internal/types"
 	"time"
 
 	"context"
@@ -26,7 +27,7 @@ func NewPaymentCache() *PaymentCache {
 	}
 }
 
-func (pc *PaymentCache) StorePayment(paymentService string, correlationId string, amount float64, requestedAt time.Time) error {
+func (pc *PaymentCache) StorePayment(paymentService string, paymentData types.PaymentRequest) error {
 
 	if paymentService != PaymentDefaultKey && paymentService != PaymentFallbackKey {
 		panic("Invalid payment service")
@@ -43,13 +44,19 @@ func (pc *PaymentCache) StorePayment(paymentService string, correlationId string
 	// 	return err
 	// }
 
-	scoreMember := fmt.Sprintf("%s:%s:%f", paymentService, correlationId, amount)
+	scoreMember := fmt.Sprintf("%s:%s:%f", paymentService, paymentData.CorrelationId, paymentData.Amount)
 
 	_, err := pc.redisClient.ZAdd(ctx, PaymentsByDateKey, redis.Z{
-		Score:  float64(requestedAt.Unix()),
+		Score:  float64(paymentData.RequestedAt.Unix()),
 		Member: scoreMember,
 	}).Result()
-	return err
+
+	if err != nil {
+		return fmt.Errorf("error persisting payment: %w", err)
+	}
+
+	return nil
+
 }
 
 func (pc *PaymentCache) GetPaymentsByDateRange(start, end time.Time) ([]string, error) {

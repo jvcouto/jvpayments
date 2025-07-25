@@ -2,14 +2,26 @@ package handlers
 
 import (
 	"encoding/json"
-	"jvpayments/queue"
-	"jvpayments/types"
+	"jvpayments/internal/services"
+	"jvpayments/internal/types"
 	"log"
 	"net/http"
+	"time"
 )
 
-func Payments(w http.ResponseWriter, r *http.Request) {
-	log.Println("Starting processing new payment")
+type PaymentHandler struct {
+	paymentService *services.PaymentService
+}
+
+func NewPaymentHandler(paymentService *services.PaymentService) *PaymentHandler {
+	return &PaymentHandler{
+		paymentService: paymentService,
+	}
+}
+
+func (ph *PaymentHandler) Payments(w http.ResponseWriter, r *http.Request) {
+	log.Println("New payment request received")
+	start := time.Now()
 
 	if r.Method != "POST" {
 		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -22,22 +34,17 @@ func Payments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer func() {
+		elapsed := time.Since(start)
+		log.Printf("Execution took %s ----- %v", elapsed, paymentReq)
+	}()
+
 	// if err := validatePaymentRequest(paymentReq); err != nil {
 	// 	http.Error(w, `{"error": "Invalid payment data"}`, http.StatusBadRequest)
 	// 	return
 	// }
 
-	/*
-		se serviço default ok = serviço defalut
-		se servico default false e fallback true = fallback
-		se os 2 serviços estiverem false
-	*/
-	defaultPaymentQueue := queue.NewRedisPaymentQueue(queue.PaymentQueueName)
-
-	if err := defaultPaymentQueue.PublishPaymentJob(paymentReq); err != nil {
-		http.Error(w, `{"error": "Failed to queue payment job"}`, http.StatusInternalServerError)
-		return
-	}
+	go ph.paymentService.ProcessPayment(paymentReq)
 }
 
 // func validatePaymentRequest(req types.PaymentRequest) error {
