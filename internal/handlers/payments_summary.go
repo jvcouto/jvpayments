@@ -20,6 +20,12 @@ func NewPaymentSummaryHandler(paymentCache *cache.PaymentCache) *PaymentSummaryH
 }
 
 func (psh *PaymentSummaryHandler) PaymentsSummary(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		log.Printf("Execution took %s", elapsed)
+	}()
+
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "GET" {

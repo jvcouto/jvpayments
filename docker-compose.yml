@@ -2,8 +2,6 @@ version: '3.8'
 
 x-app-config: &app-config
   build: .
-  expose:
-    - "9999"
   depends_on:
     redis:
       condition: service_healthy
@@ -11,12 +9,13 @@ x-app-config: &app-config
     - REDIS_HOST=redis
     - REDIS_PORT=6379
   networks:
+    - app
     - payment-processor
   deploy:
       resources:
         limits:
           cpus: "0.5"
-          memory: "50MB"
+          memory: "75MB"
 
 services:
   jvpayments-1:
@@ -35,20 +34,18 @@ services:
       - jvpayments-1
       - jvpayments-2
     networks:
-      - payment-processor
+      - app
     deploy:
       resources:
         limits:
-          cpus: "0.25"
+          cpus: "0.3"
           memory: "50MB"
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly no
+    command: redis-server --save "" --appendonly no
     networks:
-      - payment-processor
+      - app
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -57,9 +54,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.25"
-          memory: "200MB"
+          cpus: "0.2"
+          memory: "50MB"
 
 networks:
+  app:
+    driver: bridge
   payment-processor:
     external: true
