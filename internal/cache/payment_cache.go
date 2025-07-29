@@ -74,3 +74,20 @@ func (pc *PaymentCache) GetPayment(paymentService string, correlationId string) 
 	hashKey := fmt.Sprintf("%s:%s", paymentService, correlationId)
 	return pc.redisClient.HGetAll(ctx, hashKey).Result()
 }
+
+func (pc *PaymentCache) DeleteAllData() error {
+	ctx := context.Background()
+	keys := []string{
+		"payments:default",
+		"payments:fallback",
+		"payments:byDate",
+		"payment:jobs",
+		"payment:jobs:fallback",
+	}
+
+	if err := pc.redisClient.Del(ctx, keys...).Err(); err != nil {
+		return fmt.Errorf("error deleting all data: %w", err)
+	}
+
+	return nil
+}

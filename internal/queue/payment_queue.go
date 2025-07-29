@@ -2,12 +2,12 @@ package queue
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	redis_client "jvpayments/internal/redis"
 	"jvpayments/internal/types"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -53,7 +53,7 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest, 
 		MaxRetries:  getMaxRetries(queueName),
 	}
 
-	jobData, err := json.Marshal(job)
+	jobData, err := sonic.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payment job: %w", err)
 	}
@@ -79,7 +79,7 @@ func (pq *RedisPaymentQueue) ConsumePaymentJob(queueName string) (*PaymentJob, e
 	}
 
 	var job PaymentJob
-	if err := json.Unmarshal([]byte(result[1]), &job); err != nil {
+	if err := sonic.Unmarshal([]byte(result[1]), &job); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal payment job from queue %s: %w", queueName, err)
 	}
 
@@ -87,7 +87,7 @@ func (pq *RedisPaymentQueue) ConsumePaymentJob(queueName string) (*PaymentJob, e
 }
 
 func (pq *RedisPaymentQueue) RequeueJob(job *PaymentJob, queueName string) error {
-	jobData, err := json.Marshal(job)
+	jobData, err := sonic.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal job for requeue: %w", err)
 	}

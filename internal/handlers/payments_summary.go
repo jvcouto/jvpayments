@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"encoding/json"
 	"jvpayments/internal/cache"
 	"log"
-	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/gofiber/fiber/v2"
 )
 
 type PaymentSummaryHandler struct {
@@ -19,41 +20,32 @@ func NewPaymentSummaryHandler(paymentCache *cache.PaymentCache) *PaymentSummaryH
 	}
 }
 
-func (psh *PaymentSummaryHandler) PaymentsSummary(w http.ResponseWriter, r *http.Request) {
+func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		log.Printf("Execution took %s", elapsed)
+		log.Printf("[PaymentSummary] Execution took %s", elapsed)
 	}()
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method != "GET" {
-		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
-	q := r.URL.Query()
+	fromStr := c.Query("from", "")
+	toStr := c.Query("to", "")
 	var from, to time.Time
+	var err error
 
-	if fromStr := q.Get("from"); fromStr != "" {
-		fromTimeStamp, err := time.Parse(time.RFC3339, fromStr)
+	if fromStr != "" {
+		from, err = time.Parse(time.RFC3339, fromStr)
 		if err != nil {
-			http.Error(w, `{"error": "Invalid 'from' timestamp"}`, http.StatusBadRequest)
-			return
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid 'from' timestamp"})
 		}
-		from = fromTimeStamp
 	} else {
 		from = time.Unix(0, 0)
 	}
 
-	if toStr := q.Get("to"); toStr != "" {
-		toTimeStamp, err := time.Parse(time.RFC3339, toStr)
+	if toStr != "" {
+		to, err = time.Parse(time.RFC3339, toStr)
 		if err != nil {
-			http.Error(w, `{"error": "Invalid 'from' timestamp"}`, http.StatusBadRequest)
-			return
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid 'to' timestamp"})
 		}
-		to = toTimeStamp
 	} else {
 		to = time.Now()
 	}
@@ -63,19 +55,16 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(w http.ResponseWriter, r *http
 	payments, err := psh.paymentCache.GetPaymentsByDateRange(from, to)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, `{"error": "Failed to query payments"}`, http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to query payments"})
 	}
 
 	for _, paymentService := range []string{cache.PaymentDefaultKey, cache.PaymentFallbackKey} {
 		totalRequests := 0
 		totalAmount := 0.0
 		for _, payment := range payments {
-
 			if len(payment) < len(paymentService)+1 || payment[:len(paymentService)] != paymentService {
 				continue
 			}
-
 			paymentValue := payment[len(paymentService)+1+36+1:]
 			amount, _ := strconv.ParseFloat(paymentValue, 64)
 			totalAmount += amount
@@ -91,5 +80,9 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(w http.ResponseWriter, r *http
 		}
 	}
 
-	json.NewEncoder(w).Encode(result)
+	jsonBytes, err := sonic.Marshal(result)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to encode result"})
+	}
+	return c.Type("json").Send(jsonBytes)
 }

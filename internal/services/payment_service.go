@@ -2,7 +2,6 @@ package services
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"jvpayments/internal/cache"
 	"jvpayments/internal/config"
@@ -11,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 type PaymentService struct {
@@ -39,7 +40,7 @@ func (ps *PaymentService) ProcessPayment(paymentReq types.PaymentRequest) error 
 		RequestedAt:   paymentReq.RequestedAt.Format(time.RFC3339),
 	}
 
-	jsonPayload, err := json.Marshal(payload)
+	jsonPayload, err := sonic.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payment request: %w", err)
 	}

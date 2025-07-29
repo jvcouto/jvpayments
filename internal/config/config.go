@@ -19,13 +19,13 @@ var CONFIG Config
 
 func LoadConfig() {
 	CONFIG = Config{
-		RedisHost:     getEnv("REDIS_HOST", "rinha-de-backend-2025-redis-1"),
+		RedisHost:     getEnv("REDIS_HOST", "localhost"),
 		RedisPort:     getEnv("REDIS_PORT", "6379"),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDb:       getEnv("REDIS_DB", "0"),
 
-		PaymentApiUrl:         getEnv("PAYMENT_API_URL", "http://payment-processor-default:8080"),
-		PaymentApiFallbackUrl: getEnv("PAYMENT_API_FALLBACK_URL", "http://payment-processor-fallback:8080"),
+		PaymentApiUrl:         getEnv("PAYMENT_API_URL", "http://localhost:8080"),
+		PaymentApiFallbackUrl: getEnv("PAYMENT_API_FALLBACK_URL", "http://localhost:8080"),
 	}
 
 }

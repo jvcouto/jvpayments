@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"io"
 	"jvpayments/internal/services"
 	"jvpayments/internal/types"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/gofiber/fiber/v2"
 )
 
 type WorkerPool struct {
@@ -34,14 +33,14 @@ type PaymentHandler struct {
 }
 
 func NewPaymentHandler(paymentService *services.PaymentService) *PaymentHandler {
-	wp := WorkerPool{NumWorkers: 800, Jobs: make(chan types.PaymentRequest, 100)}
+	wp := WorkerPool{NumWorkers: 300, Jobs: make(chan types.PaymentRequest, 1000)}
 	wp.Start(paymentService)
 	return &PaymentHandler{
 		workerPool: wp,
 	}
 }
 
-func (ph *PaymentHandler) Payments(w http.ResponseWriter, r *http.Request) {
+func (ph *PaymentHandler) Payments(c *fiber.Ctx) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
@@ -50,31 +49,19 @@ func (ph *PaymentHandler) Payments(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("New payment request received")
 
-	if r.Method != "POST" {
-		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
 	var paymentReq types.PaymentRequest
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, `{"error": "Error reading request body"}`, http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
+	body := c.Body()
 	if err := sonic.Unmarshal(body, &paymentReq); err != nil {
-		http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	// if err := validatePaymentRequest(paymentReq); err != nil {
-	// 	http.Error(w, `{"error": "Invalid payment data"}`, http.StatusBadRequest)
-	// 	return
+	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payment data"})
 	// }
 
 	ph.workerPool.Jobs <- paymentReq
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // func validatePaymentRequest(req types.PaymentRequest) error {

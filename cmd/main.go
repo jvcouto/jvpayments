@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"jvpayments/internal/cache"
 	"jvpayments/internal/config"
@@ -10,6 +9,9 @@ import (
 	"jvpayments/internal/queue"
 	redis_client "jvpayments/internal/redis"
 	"jvpayments/internal/services"
+
+	"github.com/bytedance/sonic"
+	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
@@ -43,15 +45,16 @@ func main() {
 	paymentQueue := queue.NewRedisPaymentQueue()
 	paymentService := services.NewPaymentService(paymentQueue, paymentCache)
 
-	paymentHandler := handlers.NewPaymentHandler(paymentService)
-	paymentSummaryHandler := handlers.NewPaymentSummaryHandler(paymentCache)
-	dbPurgeHandler := handlers.NewDbPurgeHandler()
+	app := fiber.New(fiber.Config{
+		Prefork:     false,
+		JSONEncoder: sonic.Marshal,
+		JSONDecoder: sonic.Unmarshal,
+	})
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/payments", paymentHandler.Payments)
-	mux.HandleFunc("/payments-summary", paymentSummaryHandler.PaymentsSummary)
-	mux.HandleFunc("/db-purge", dbPurgeHandler.DbPurge)
+	app.Post("/payments", handlers.NewPaymentHandler(paymentService).Payments)
+	app.Get("/payments-summary", handlers.NewPaymentSummaryHandler(paymentCache).PaymentsSummary)
+	app.Post("/purge-payments", handlers.NewDbPurgeHandler(paymentCache).DbPurge)
 
 	log.Println("Server starting on :3001")
-	log.Fatal(http.ListenAndServe(":3001", mux))
+	log.Fatal(app.Listen(":3001"))
 }
