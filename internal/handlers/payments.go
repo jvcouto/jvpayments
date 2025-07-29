@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -51,8 +50,7 @@ func (ph *PaymentHandler) Payments(c *fiber.Ctx) error {
 
 	var paymentReq types.PaymentRequest
 
-	body := c.Body()
-	if err := sonic.Unmarshal(body, &paymentReq); err != nil {
+	if err := c.BodyParser(&paymentReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -80,9 +79,5 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 		}
 	}
 
-	jsonBytes, err := sonic.Marshal(result)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to encode result"})
-	}
-	return c.Type("json").Send(jsonBytes)
+	return c.JSON(result)
 }
