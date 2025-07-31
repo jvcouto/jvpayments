@@ -15,6 +15,9 @@ const (
 	PaymentDefaultKey  = "payments:default"
 	PaymentFallbackKey = "payments:fallback"
 	PaymentsByDateKey  = "payments:byDate"
+
+	DefaultPaymentApiStatus  = "default:api:status"
+	FallbackPaymentApiStatus = "fallback:api:status"
 )
 
 type PaymentCache struct {
@@ -69,11 +72,11 @@ func (pc *PaymentCache) GetPaymentsByDateRange(start, end time.Time) ([]string, 
 	}).Result()
 }
 
-func (pc *PaymentCache) GetPayment(paymentService string, correlationId string) (map[string]string, error) {
-	ctx := context.Background()
-	hashKey := fmt.Sprintf("%s:%s", paymentService, correlationId)
-	return pc.redisClient.HGetAll(ctx, hashKey).Result()
-}
+// func (pc *PaymentCache) GetPayment(paymentService string, correlationId string) (map[string]string, error) {
+// 	ctx := context.Background()
+// 	hashKey := fmt.Sprintf("%s:%s", paymentService, correlationId)
+// 	return pc.redisClient.HGetAll(ctx, hashKey).Result()
+// }
 
 func (pc *PaymentCache) DeleteAllData() error {
 	ctx := context.Background()
@@ -90,4 +93,38 @@ func (pc *PaymentCache) DeleteAllData() error {
 	}
 
 	return nil
+}
+
+func (pc *PaymentCache) GetApisStatus() (map[string]any, error) {
+	ctx := context.Background()
+	apisStatus, err := pc.redisClient.MGet(ctx, DefaultPaymentApiStatus, FallbackPaymentApiStatus).Result()
+
+	if err != nil {
+		return nil, fmt.Errorf("error getting apis status: %w", err)
+	}
+
+	result := make(map[string]any)
+	apiKeys := []string{"default", "fallback"}
+
+	for i, status := range apisStatus {
+
+		if status == nil {
+			result[apiKeys[i]] = ""
+			continue
+		}
+
+		var failing bool
+		var minResponseTime int
+
+		if statusStr, ok := status.(string); ok {
+			fmt.Sscanf(statusStr, "%t:%d", &failing, &minResponseTime)
+		}
+
+		result[apiKeys[i]] = map[string]any{
+			"failing":         failing,
+			"minResponseTime": minResponseTime,
+		}
+	}
+
+	return result, nil
 }

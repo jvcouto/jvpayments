@@ -5,6 +5,7 @@ import (
 	"fmt"
 	redis_client "jvpayments/internal/redis"
 	"jvpayments/internal/types"
+	"log"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -12,9 +13,8 @@ import (
 )
 
 const (
-	PaymentQueueName          = "payment:jobs"
-	PaymentFallabackQueueName = "payment:jobs:fallback"
-	JobTimeout                = 30 * time.Second
+	PaymentQueueName = "payment:jobs"
+	JobTimeout       = 30 * time.Second
 )
 
 type PaymentJob struct {
@@ -28,29 +28,19 @@ type RedisPaymentQueue struct {
 	redisClient *redis.Client
 }
 
-func getMaxRetries(queueName string) int {
-	switch queueName {
-	case PaymentQueueName:
-		return 3
-	case PaymentFallabackQueueName:
-		return 1
-	default:
-		return 1
-	}
-}
-
 func NewRedisPaymentQueue() *RedisPaymentQueue {
 	return &RedisPaymentQueue{
 		redisClient: redis_client.RedisClient,
 	}
 }
 
-func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest, queueName string) error {
+func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) error {
+
 	job := PaymentJob{
 		ID:          generateJobID(),
 		PaymentData: paymentReq,
 		RetryCount:  0,
-		MaxRetries:  getMaxRetries(queueName),
+		MaxRetries:  10,
 	}
 
 	jobData, err := sonic.Marshal(job)
@@ -61,32 +51,40 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest, 
 	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
 	defer cancel()
 
-	err = pq.redisClient.LPush(ctx, queueName, jobData).Err()
+	err = pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
 	if err != nil {
-		return fmt.Errorf("failed to publish payment job to queue %s: %w", queueName, err)
+		return fmt.Errorf("failed to publish payment job to queue: %w", err)
+	}
+
+	// Log queue size after publishing
+	queueSize, err := pq.redisClient.LLen(ctx, PaymentQueueName).Result()
+	if err != nil {
+		log.Printf("Warning: failed to get queue size: %v", err)
+	} else {
+		log.Printf("Published payment job %s to queue. Queue size: %d", job.ID, queueSize)
 	}
 
 	return nil
 }
 
-func (pq *RedisPaymentQueue) ConsumePaymentJob(queueName string) (*PaymentJob, error) {
+func (pq *RedisPaymentQueue) ConsumePaymentJob() (*PaymentJob, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
 	defer cancel()
 
-	result, err := pq.redisClient.BRPop(ctx, 0, queueName).Result()
+	result, err := pq.redisClient.BRPop(ctx, 0, PaymentQueueName).Result()
 	if err != nil {
-		return nil, fmt.Errorf("failed to consume payment job from queue %s: %w", queueName, err)
+		return nil, fmt.Errorf("failed to consume payment job from queue: %w", err)
 	}
 
 	var job PaymentJob
 	if err := sonic.Unmarshal([]byte(result[1]), &job); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal payment job from queue %s: %w", queueName, err)
+		return nil, fmt.Errorf("failed to unmarshal payment job from queue: %w", err)
 	}
 
 	return &job, nil
 }
 
-func (pq *RedisPaymentQueue) RequeueJob(job *PaymentJob, queueName string) error {
+func (pq *RedisPaymentQueue) RequeueJob(job *PaymentJob) error {
 	jobData, err := sonic.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal job for requeue: %w", err)
@@ -95,7 +93,7 @@ func (pq *RedisPaymentQueue) RequeueJob(job *PaymentJob, queueName string) error
 	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
 	defer cancel()
 
-	return pq.redisClient.LPush(ctx, queueName, jobData).Err()
+	return pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
 }
 
 func generateJobID() string {

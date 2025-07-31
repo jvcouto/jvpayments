@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-app-config: &app-config
   build: .
   depends_on:
@@ -8,8 +6,8 @@ x-app-config: &app-config
   environment:
     - REDIS_HOST=redis
     - REDIS_PORT=6379
-    - PAYMENT_API_URL=http://payment-processor-default:8001
-    - PAYMENT_API_FALLBACK_URL=http://payment-processor-fallback:8002
+    - PAYMENT_API_URL=http://payment-processor-default:8080
+    - PAYMENT_API_FALLBACK_URL=http://payment-processor-fallback:8080
   networks:
     - app
     - payment-processor

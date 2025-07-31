@@ -43,7 +43,7 @@ func (ph *PaymentHandler) Payments(c *fiber.Ctx) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		log.Printf("Execution took %s", elapsed)
+		log.Printf("[Payments]Execution took %s", elapsed)
 	}()
 
 	log.Println("New payment request received")
