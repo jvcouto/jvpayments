@@ -64,10 +64,11 @@ func (pc *PaymentCache) StorePayment(paymentService string, paymentData types.Pa
 
 func (pc *PaymentCache) GetPaymentsByDateRange(start, end time.Time) ([]string, error) {
 	ctx := context.Background()
+
 	startScore := float64(start.Unix())
 	endScore := float64(end.Unix())
 	return pc.redisClient.ZRangeByScore(ctx, PaymentsByDateKey, &redis.ZRangeBy{
-		Min: fmt.Sprintf("%f", startScore),
+		Min: fmt.Sprintf("(%f", startScore),
 		Max: fmt.Sprintf("%f", endScore),
 	}).Result()
 }

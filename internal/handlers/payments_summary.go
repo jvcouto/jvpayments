@@ -3,6 +3,7 @@ package handlers
 import (
 	"jvpayments/internal/cache"
 	"log"
+	"math"
 	"strconv"
 	"time"
 
@@ -51,7 +52,7 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 
 	result := map[string]any{}
 
-	payments, err := psh.paymentCache.GetPaymentsByDateRange(from, to)
+	payments, err := psh.paymentCache.GetPaymentsByDateRange(from.UTC(), to.UTC())
 	if err != nil {
 		log.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to query payments"})
@@ -75,7 +76,7 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 		}
 		result[key] = map[string]any{
 			"totalRequests": totalRequests,
-			"totalAmount":   totalAmount,
+			"totalAmount":   math.Round(totalAmount*100) / 100,
 		}
 	}
 
