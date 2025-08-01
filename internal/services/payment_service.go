@@ -24,9 +24,7 @@ type PaymentService struct {
 
 func NewPaymentService(paymentQueue *queue.RedisPaymentQueue, paymentCache *cache.PaymentCache) *PaymentService {
 	return &PaymentService{
-		httpClient: &http.Client{
-			Timeout: 500 * time.Millisecond,
-		},
+		httpClient:   &http.Client{},
 		paymentQueue: paymentQueue,
 		paymentCache: paymentCache,
 	}
