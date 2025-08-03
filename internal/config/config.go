@@ -24,8 +24,8 @@ func LoadConfig() {
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDb:       getEnv("REDIS_DB", "0"),
 
-		PaymentApiUrl:         getEnv("PAYMENT_API_URL", "http://localhost:8080"),
-		PaymentApiFallbackUrl: getEnv("PAYMENT_API_FALLBACK_URL", "http://localhost:8080"),
+		PaymentApiUrl:         getEnv("PAYMENT_API_URL", "http://localhost:8001"),
+		PaymentApiFallbackUrl: getEnv("PAYMENT_API_FALLBACK_URL", "http://localhost:8002"),
 	}
 
 }

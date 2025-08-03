@@ -32,10 +32,6 @@ func NewPaymentCache() *PaymentCache {
 
 func (pc *PaymentCache) StorePayment(paymentService string, paymentData types.PaymentRequest) error {
 
-	if paymentService != PaymentDefaultKey && paymentService != PaymentFallbackKey {
-		panic("Invalid payment service")
-	}
-
 	ctx := context.Background()
 
 	// hashKey := fmt.Sprintf("%s:%s", paymentService, correlationId)
@@ -128,4 +124,27 @@ func (pc *PaymentCache) GetApisStatus() (map[string]any, error) {
 	}
 
 	return result, nil
+}
+
+func (pc *PaymentCache) UpdateApisStatus(paymentService string, healthResponse types.HealthResponse) error {
+	ctx := context.Background()
+
+	var statusKey string
+	switch paymentService {
+	case "default":
+		statusKey = DefaultPaymentApiStatus
+	case "fallback":
+		statusKey = FallbackPaymentApiStatus
+	default:
+		return fmt.Errorf("unknown payment service: %s", paymentService)
+	}
+
+	statusValue := fmt.Sprintf("%t:%d", healthResponse.Failing, healthResponse.MinResponseTime)
+
+	_, err := pc.redisClient.Set(ctx, statusKey, statusValue, 0).Result()
+	if err != nil {
+		return fmt.Errorf("error updating api status for %s: %w", paymentService, err)
+	}
+
+	return nil
 }

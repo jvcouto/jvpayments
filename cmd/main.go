@@ -26,7 +26,11 @@ func main() {
 	paymentQueue := queue.NewRedisPaymentQueue()
 	paymentService := services.NewPaymentService(paymentQueue, paymentCache)
 
-	for range 1000 {
+	healthCheckService := services.NewHeathCheckService(paymentCache)
+	healthCheckService.Start()
+	defer healthCheckService.Stop()
+
+	for range 3000 {
 		go workers.NewPaymentWorker(paymentQueue, paymentService)
 	}
 
