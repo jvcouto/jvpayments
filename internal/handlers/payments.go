@@ -5,7 +5,7 @@ import (
 	"jvpayments/internal/services"
 	"jvpayments/internal/types"
 	"log"
-	"time"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -37,34 +37,30 @@ type PaymentHandler struct {
 }
 
 func NewPaymentHandler(paymentService *services.PaymentService, paymentQueue *queue.RedisPaymentQueue) *PaymentHandler {
-	wp := WorkerPool{NumWorkers: 350, Jobs: make(chan types.PaymentRequest, 1750)}
+	wp := WorkerPool{NumWorkers: 350, Jobs: make(chan types.PaymentRequest, 700)}
 	wp.Start(paymentService, paymentQueue)
 	return &PaymentHandler{
 		workerPool: wp,
 	}
 }
 
+var paymentReqPool = sync.Pool{
+	New: func() interface{} {
+		return &types.PaymentRequest{}
+	},
+}
+
 func (ph *PaymentHandler) Payments(c *fiber.Ctx) error {
-	start := time.Now()
-	defer func() {
-		elapsed := time.Since(start)
-		log.Printf("[Payments]Execution took %s", elapsed)
-	}()
+	paymentReq := paymentReqPool.Get().(*types.PaymentRequest)
+	defer paymentReqPool.Put(paymentReq)
 
-	log.Println("New payment request received")
+	*paymentReq = types.PaymentRequest{}
 
-	var paymentReq types.PaymentRequest
-
-	if err := c.BodyParser(&paymentReq); err != nil {
+	if err := c.BodyParser(paymentReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	// if err := validatePaymentRequest(paymentReq); err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payment data"})
-	// }
-
-	ph.workerPool.Jobs <- paymentReq
-	log.Printf("[Payments] Worker pool jobs queue size: %d", len(ph.workerPool.Jobs))
+	ph.workerPool.Jobs <- *paymentReq
 
 	return c.SendStatus(fiber.StatusNoContent)
 }

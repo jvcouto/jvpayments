@@ -30,8 +30,9 @@ func main() {
 	healthCheckService.Start()
 	defer healthCheckService.Stop()
 
+	paymentWorkers := workers.NewPaymentWorker(paymentQueue, paymentService)
 	for range 5 {
-		go workers.NewPaymentWorker(paymentQueue, paymentService).Start()
+		go paymentWorkers.Start()
 	}
 
 	app := fiber.New(fiber.Config{

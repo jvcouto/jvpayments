@@ -23,9 +23,11 @@ func InitRedis() error {
 	fmt.Sscanf(database, "%d", &db)
 
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", host, port),
-		Password: password,
-		DB:       db,
+		Addr:         fmt.Sprintf("%s:%s", host, port),
+		Password:     password,
+		DB:           db,
+		MinIdleConns: 20,
+		PoolSize:     100,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
