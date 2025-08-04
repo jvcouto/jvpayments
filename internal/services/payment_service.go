@@ -76,12 +76,6 @@ func (ps *PaymentService) pickPaymentServiceToUse() (string, error) {
 }
 
 func (ps *PaymentService) ProcessPayment(paymentReq types.PaymentRequest) error {
-	start := time.Now()
-	defer func() {
-		elapsed := time.Since(start)
-		log.Printf("[ProcessPayment]Execution took %s", elapsed)
-	}()
-
 	log.Println("Starting processing payment")
 
 	paymentServiceToUse, err := ps.pickPaymentServiceToUse()

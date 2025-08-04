@@ -21,12 +21,6 @@ func NewPaymentSummaryHandler(paymentCache *cache.PaymentCache) *PaymentSummaryH
 }
 
 func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
-	start := time.Now()
-	defer func() {
-		elapsed := time.Since(start)
-		log.Printf("[PaymentSummary] Execution took %s", elapsed)
-	}()
-
 	fromStr := c.Query("from", "")
 	toStr := c.Query("to", "")
 	var from, to time.Time
