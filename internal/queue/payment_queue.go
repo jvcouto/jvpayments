@@ -5,7 +5,6 @@ import (
 	"fmt"
 	redis_client "jvpayments/internal/redis"
 	"jvpayments/internal/types"
-	"log"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -52,14 +51,6 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) 
 	err = pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
 	if err != nil {
 		return fmt.Errorf("failed to publish payment job to queue: %w", err)
-	}
-
-	// Log queue size after publishing
-	queueSize, err := pq.redisClient.LLen(ctx, PaymentQueueName).Result()
-	if err != nil {
-		log.Printf("Warning: failed to get queue size: %v", err)
-	} else {
-		log.Printf("Published payment job %s to queue. Queue size: %d", job.ID, queueSize)
 	}
 
 	return nil

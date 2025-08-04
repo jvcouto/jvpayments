@@ -7,7 +7,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/bytedance/sonic"
+	"github.com/valyala/fasthttp"
 )
 
 type WorkerPool struct {
@@ -50,19 +51,25 @@ var paymentReqPool = sync.Pool{
 	},
 }
 
-func (ph *PaymentHandler) Payments(c *fiber.Ctx) error {
+func (ph *PaymentHandler) Payments(ctx *fasthttp.RequestCtx) {
 	paymentReq := paymentReqPool.Get().(*types.PaymentRequest)
 	defer paymentReqPool.Put(paymentReq)
 
 	*paymentReq = types.PaymentRequest{}
 
-	if err := c.BodyParser(paymentReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	if err := sonic.Unmarshal(ctx.PostBody(), paymentReq); err != nil {
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		response := map[string]string{"error": "Invalid request body"}
+		if jsonData, err := sonic.Marshal(response); err == nil {
+			ctx.SetContentType("application/json")
+			ctx.SetBody(jsonData)
+		}
+		return
 	}
 
 	ph.workerPool.Jobs <- *paymentReq
 
-	return c.SendStatus(fiber.StatusNoContent)
+	ctx.SetStatusCode(fasthttp.StatusNoContent)
 }
 
 // func validatePaymentRequest(req types.PaymentRequest) error {

@@ -3,7 +3,8 @@ package handlers
 import (
 	"jvpayments/internal/cache"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/bytedance/sonic"
+	"github.com/valyala/fasthttp"
 )
 
 type DbPurgeHandler struct {
@@ -16,12 +17,21 @@ func NewDbPurgeHandler(paymentCache *cache.PaymentCache) *DbPurgeHandler {
 	}
 }
 
-func (dph *DbPurgeHandler) DbPurge(c *fiber.Ctx) error {
-
+func (dph *DbPurgeHandler) DbPurge(ctx *fasthttp.RequestCtx) {
 	if err := dph.paymentCache.DeleteAllData(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to purge payment keys"})
-
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		response := map[string]string{"error": "Failed to purge payment keys"}
+		if jsonData, err := sonic.Marshal(response); err == nil {
+			ctx.SetContentType("application/json")
+			ctx.SetBody(jsonData)
+		}
+		return
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Payment keys purged"})
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	response := map[string]string{"message": "Payment keys purged"}
+	if jsonData, err := sonic.Marshal(response); err == nil {
+		ctx.SetContentType("application/json")
+		ctx.SetBody(jsonData)
+	}
 }

@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/bytedance/sonic"
+	"github.com/valyala/fasthttp"
 )
 
 type PaymentSummaryHandler struct {
@@ -20,16 +21,22 @@ func NewPaymentSummaryHandler(paymentCache *cache.PaymentCache) *PaymentSummaryH
 	}
 }
 
-func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
-	fromStr := c.Query("from", "")
-	toStr := c.Query("to", "")
+func (psh *PaymentSummaryHandler) PaymentsSummary(ctx *fasthttp.RequestCtx) {
+	fromStr := string(ctx.QueryArgs().Peek("from"))
+	toStr := string(ctx.QueryArgs().Peek("to"))
 	var from, to time.Time
 	var err error
 
 	if fromStr != "" {
 		from, err = time.Parse(time.RFC3339, fromStr)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid 'from' timestamp"})
+			ctx.SetStatusCode(fasthttp.StatusBadRequest)
+			response := map[string]string{"error": "Invalid 'from' timestamp"}
+			if jsonData, err := sonic.Marshal(response); err == nil {
+				ctx.SetContentType("application/json")
+				ctx.SetBody(jsonData)
+			}
+			return
 		}
 	} else {
 		from = time.Unix(0, 0)
@@ -38,7 +45,13 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 	if toStr != "" {
 		to, err = time.Parse(time.RFC3339, toStr)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid 'to' timestamp"})
+			ctx.SetStatusCode(fasthttp.StatusBadRequest)
+			response := map[string]string{"error": "Invalid 'to' timestamp"}
+			if jsonData, err := sonic.Marshal(response); err == nil {
+				ctx.SetContentType("application/json")
+				ctx.SetBody(jsonData)
+			}
+			return
 		}
 	} else {
 		to = time.Now()
@@ -49,7 +62,13 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 	payments, err := psh.paymentCache.GetPaymentsByDateRange(from.UTC(), to.UTC())
 	if err != nil {
 		log.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to query payments"})
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		response := map[string]string{"error": "Failed to query payments"}
+		if jsonData, err := sonic.Marshal(response); err == nil {
+			ctx.SetContentType("application/json")
+			ctx.SetBody(jsonData)
+		}
+		return
 	}
 
 	for _, paymentService := range []string{cache.PaymentDefaultKey, cache.PaymentFallbackKey} {
@@ -74,5 +93,8 @@ func (psh *PaymentSummaryHandler) PaymentsSummary(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(result)
+	if jsonData, err := sonic.Marshal(result); err == nil {
+		ctx.SetContentType("application/json")
+		ctx.SetBody(jsonData)
+	}
 }

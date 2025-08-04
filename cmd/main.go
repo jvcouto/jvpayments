@@ -11,8 +11,7 @@ import (
 	"jvpayments/internal/services"
 	workers "jvpayments/internal/workers/payment"
 
-	"github.com/bytedance/sonic"
-	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 )
 
 func main() {
@@ -35,16 +34,27 @@ func main() {
 		go paymentWorkers.Start()
 	}
 
-	app := fiber.New(fiber.Config{
-		Prefork:     false,
-		JSONEncoder: sonic.Marshal,
-		JSONDecoder: sonic.Unmarshal,
-	})
+	paymentHandler := handlers.NewPaymentHandler(paymentService, paymentQueue)
+	paymentSummaryHandler := handlers.NewPaymentSummaryHandler(paymentCache)
+	dbPurgeHandler := handlers.NewDbPurgeHandler(paymentCache)
 
-	app.Post("/payments", handlers.NewPaymentHandler(paymentService, paymentQueue).Payments)
-	app.Get("/payments-summary", handlers.NewPaymentSummaryHandler(paymentCache).PaymentsSummary)
-	app.Post("/purge-payments", handlers.NewDbPurgeHandler(paymentCache).DbPurge)
+	requestHandler := func(ctx *fasthttp.RequestCtx) {
+		path := string(ctx.Path())
+		method := string(ctx.Method())
+
+		switch {
+		case method == "POST" && path == "/payments":
+			paymentHandler.Payments(ctx)
+		case method == "GET" && path == "/payments-summary":
+			paymentSummaryHandler.PaymentsSummary(ctx)
+		case method == "POST" && path == "/purge-payments":
+			dbPurgeHandler.DbPurge(ctx)
+		default:
+			ctx.SetStatusCode(fasthttp.StatusNotFound)
+			ctx.SetBodyString("Not Found")
+		}
+	}
 
 	log.Println("Server starting on :3001")
-	log.Fatal(app.Listen(":3001"))
+	log.Fatal(fasthttp.ListenAndServe(":3001", requestHandler))
 }
