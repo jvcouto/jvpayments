@@ -52,25 +52,26 @@ func (ps *PaymentService) pickPaymentServiceToUse() (string, error) {
 	defaultFailing, defaultRT := getStatus(defaultStatus)
 	fallbackFailing, fallbackRT := getStatus(fallbackStatus)
 
-	if !defaultFailing {
+	if !defaultFailing && defaultRT <= MAX_ACCEPTABLE_REPONSETIME {
 		return "default", nil
 	}
-	if defaultFailing && !fallbackFailing {
+	if defaultFailing && !fallbackFailing && fallbackRT <= MAX_ACCEPTABLE_REPONSETIME {
 		return "fallback", nil
 	}
 
 	if !defaultFailing && !fallbackFailing {
-		if defaultRT < MAX_ACCEPTABLE_REPONSETIME && fallbackRT >= MAX_ACCEPTABLE_REPONSETIME {
+		if defaultRT <= MAX_ACCEPTABLE_REPONSETIME {
 			return "default", nil
 		}
-		if fallbackRT < MAX_ACCEPTABLE_REPONSETIME && defaultRT >= MAX_ACCEPTABLE_REPONSETIME {
+		if fallbackRT <= MAX_ACCEPTABLE_REPONSETIME {
 			return "fallback", nil
 		}
-		if defaultRT < fallbackRT {
+		if defaultRT <= fallbackRT {
 			return "default", nil
 		}
 		return "fallback", nil
 	}
+
 	return "default", nil
 }
 
