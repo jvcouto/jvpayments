@@ -38,7 +38,7 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) 
 		ID:          generateJobID(),
 		PaymentData: paymentReq,
 		RetryCount:  0,
-		MaxRetries:  10,
+		MaxRetries:  12,
 	}
 
 	jobData, err := sonic.Marshal(job)
