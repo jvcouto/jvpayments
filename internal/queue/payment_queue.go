@@ -14,7 +14,6 @@ import (
 
 const (
 	PaymentQueueName = "payment:jobs"
-	JobTimeout       = 30 * time.Second
 )
 
 type PaymentJob struct {
@@ -48,8 +47,7 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) 
 		return fmt.Errorf("failed to marshal payment job: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
-	defer cancel()
+	ctx := context.Background()
 
 	err = pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
 	if err != nil {
@@ -68,8 +66,7 @@ func (pq *RedisPaymentQueue) PublishPaymentJob(paymentReq types.PaymentRequest) 
 }
 
 func (pq *RedisPaymentQueue) ConsumePaymentJob() (*PaymentJob, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
-	defer cancel()
+	ctx := context.Background()
 
 	result, err := pq.redisClient.BRPop(ctx, 0, PaymentQueueName).Result()
 	if err != nil {
@@ -90,8 +87,7 @@ func (pq *RedisPaymentQueue) RequeueJob(job *PaymentJob) error {
 		return fmt.Errorf("failed to marshal job for requeue: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), JobTimeout)
-	defer cancel()
+	ctx := context.Background()
 
 	return pq.redisClient.LPush(ctx, PaymentQueueName, jobData).Err()
 }

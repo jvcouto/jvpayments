@@ -30,8 +30,8 @@ func main() {
 	healthCheckService.Start()
 	defer healthCheckService.Stop()
 
-	for range 3000 {
-		go workers.NewPaymentWorker(paymentQueue, paymentService)
+	for range 5 {
+		go workers.NewPaymentWorker(paymentQueue, paymentService).Start()
 	}
 
 	app := fiber.New(fiber.Config{
@@ -40,7 +40,7 @@ func main() {
 		JSONDecoder: sonic.Unmarshal,
 	})
 
-	app.Post("/payments", handlers.NewPaymentHandler(paymentService).Payments)
+	app.Post("/payments", handlers.NewPaymentHandler(paymentService, paymentQueue).Payments)
 	app.Get("/payments-summary", handlers.NewPaymentSummaryHandler(paymentCache).PaymentsSummary)
 	app.Post("/purge-payments", handlers.NewDbPurgeHandler(paymentCache).DbPurge)
 

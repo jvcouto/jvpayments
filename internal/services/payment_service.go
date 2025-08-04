@@ -118,23 +118,12 @@ func (ps *PaymentService) ProcessPayment(paymentReq types.PaymentRequest) error 
 	resp, err := ps.httpClient.Do(httpReq)
 
 	if err != nil {
-		queueErr := ps.paymentQueue.PublishPaymentJob(paymentReq)
-		if queueErr != nil {
-			return fmt.Errorf("failed to make payment request: %w; additionally failed to queue payment job: %w", err, queueErr)
-		}
 		return fmt.Errorf("failed to make payment request: %w", err)
 	}
 
 	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		queueErr := ps.paymentQueue.PublishPaymentJob(paymentReq)
-		if queueErr != nil {
-			return fmt.Errorf(
-				"payment API returned status %d; additionally failed to queue payment job: %w",
-				resp.StatusCode, queueErr,
-			)
-		}
 		return fmt.Errorf("payment API returned status %d", resp.StatusCode)
 	}
 

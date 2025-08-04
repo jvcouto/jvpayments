@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"jvpayments/internal/queue"
 	"jvpayments/internal/services"
 	"jvpayments/internal/types"
 	"log"
@@ -14,13 +15,17 @@ type WorkerPool struct {
 	Jobs       chan types.PaymentRequest
 }
 
-func (wp *WorkerPool) Start(ps *services.PaymentService) {
+func (wp *WorkerPool) Start(ps *services.PaymentService, paymentQueue *queue.RedisPaymentQueue) {
 	for i := 0; i < wp.NumWorkers; i++ {
 		go func(workerID int) {
 			for job := range wp.Jobs {
 				err := ps.ProcessPayment(job)
 				if err != nil {
 					log.Printf("error processing payment: %v", err)
+					queueErr := paymentQueue.PublishPaymentJob(job)
+					if queueErr != nil {
+						log.Printf("failed to make payment request: %v", queueErr)
+					}
 				}
 			}
 		}(i)
@@ -31,9 +36,9 @@ type PaymentHandler struct {
 	workerPool WorkerPool
 }
 
-func NewPaymentHandler(paymentService *services.PaymentService) *PaymentHandler {
-	wp := WorkerPool{NumWorkers: 300, Jobs: make(chan types.PaymentRequest, 1000)}
-	wp.Start(paymentService)
+func NewPaymentHandler(paymentService *services.PaymentService, paymentQueue *queue.RedisPaymentQueue) *PaymentHandler {
+	wp := WorkerPool{NumWorkers: 350, Jobs: make(chan types.PaymentRequest, 1750)}
+	wp.Start(paymentService, paymentQueue)
 	return &PaymentHandler{
 		workerPool: wp,
 	}
@@ -59,6 +64,8 @@ func (ph *PaymentHandler) Payments(c *fiber.Ctx) error {
 	// }
 
 	ph.workerPool.Jobs <- paymentReq
+	log.Printf("[Payments] Worker pool jobs queue size: %d", len(ph.workerPool.Jobs))
+
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

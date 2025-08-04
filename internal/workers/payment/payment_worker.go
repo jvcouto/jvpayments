@@ -30,8 +30,6 @@ func (pw *PaymentWorker) ProcessNextJob() {
 
 	log.Printf("Processing payment job: %s", job.ID)
 
-	job.PaymentData.UpdateRequestedAt()
-
 	err = pw.paymentService.ProcessPayment(job.PaymentData)
 	if err != nil {
 		log.Printf("Error processing payment job %s: %v", job.ID, err)
