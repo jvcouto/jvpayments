@@ -8,6 +8,8 @@ x-app-config: &app-config
     - REDIS_PORT=6379
     - PAYMENT_API_URL=http://payment-processor-default:8080
     - PAYMENT_API_FALLBACK_URL=http://payment-processor-fallback:8080
+  volumes:
+    - socket_data:/tmp/sockets
   networks:
     - app
     - payment-processor
@@ -20,9 +22,21 @@ x-app-config: &app-config
 services:
   jvpayments-1:
     <<: *app-config
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PAYMENT_API_URL=http://payment-processor-default:8080
+      - PAYMENT_API_FALLBACK_URL=http://payment-processor-fallback:8080
+      - SOCKET_PATH=/tmp/sockets/jvpayments-1.sock
 
   jvpayments-2:
     <<: *app-config
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PAYMENT_API_URL=http://payment-processor-default:8080
+      - PAYMENT_API_FALLBACK_URL=http://payment-processor-fallback:8080
+      - SOCKET_PATH=/tmp/sockets/jvpayments-2.sock
 
   haproxy:
     image: haproxy:alpine
@@ -30,6 +44,7 @@ services:
       - "9999:80"
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - socket_data:/tmp/sockets
     depends_on:
       - jvpayments-1
       - jvpayments-2
@@ -58,6 +73,9 @@ services:
         limits:
           cpus: "0.2"
           memory: "50MB"
+
+volumes:
+  socket_data:
 
 networks:
   app:
