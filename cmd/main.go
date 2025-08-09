@@ -2,9 +2,8 @@ package main
 
 import (
 	"log"
-	"net"
 	"os"
-	"path/filepath"
+	"time"
 
 	"jvpayments/internal/cache"
 	"jvpayments/internal/config"
@@ -60,25 +59,14 @@ func main() {
 		}
 	}
 
-	socketDir := filepath.Dir(socketPath)
-	if err := os.MkdirAll(socketDir, 0777); err != nil {
-		log.Fatalf("Failed to create socket directory: %v", err)
-	}
-
-	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("Warning: failed to remove existing socket file: %v", err)
-	}
-
-	ln, err := net.Listen("unix", socketPath)
-	if err != nil {
-		panic(err)
-	}
-	defer ln.Close()
-
-	if err := os.Chmod(socketPath, 0666); err != nil {
-		log.Printf("Warning: failed to set socket permissions: %v", err)
+	server := &fasthttp.Server{
+		Handler:           requestHandler,
+		TCPKeepalive:      true,
+		DisableKeepalive:  false,
+		ReduceMemoryUsage: true,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	log.Printf("Server starting on Unix socket: %s", socketPath)
-	log.Fatal(fasthttp.Serve(ln, requestHandler))
+	log.Fatal(server.ListenAndServeUNIX(socketPath, 0666))
 }

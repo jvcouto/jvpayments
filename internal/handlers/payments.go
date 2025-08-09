@@ -5,7 +5,6 @@ import (
 	"jvpayments/internal/services"
 	"jvpayments/internal/types"
 	"log"
-	"sync"
 
 	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
@@ -13,19 +12,27 @@ import (
 
 type WorkerPool struct {
 	NumWorkers int
-	Jobs       chan types.PaymentRequest
+	Jobs       chan []byte
 }
 
 func (wp *WorkerPool) Start(ps *services.PaymentService, paymentQueue *queue.RedisPaymentQueue) {
 	for i := 0; i < wp.NumWorkers; i++ {
 		go func(workerID int) {
 			for job := range wp.Jobs {
-				err := ps.ProcessPayment(job)
+
+				var paymentReq types.PaymentRequest
+
+				if err := sonic.Unmarshal(job, &paymentReq); err != nil {
+					log.Printf("error: %v", err)
+					return
+				}
+
+				err := ps.ProcessPayment(paymentReq)
 				if err != nil {
-					log.Printf("error processing payment: %v", err)
-					queueErr := paymentQueue.PublishPaymentJob(job)
+					log.Printf("[worker pool] error processing payment: %v", err)
+					queueErr := paymentQueue.PublishPaymentJob(paymentReq)
 					if queueErr != nil {
-						log.Printf("failed to make payment request: %v", queueErr)
+						log.Printf("failed to publish payment job: %v", queueErr)
 					}
 				}
 			}
@@ -38,41 +45,15 @@ type PaymentHandler struct {
 }
 
 func NewPaymentHandler(paymentService *services.PaymentService, paymentQueue *queue.RedisPaymentQueue) *PaymentHandler {
-	wp := WorkerPool{NumWorkers: 350, Jobs: make(chan types.PaymentRequest, 700)}
+	wp := WorkerPool{NumWorkers: 400, Jobs: make(chan []byte, 100000)}
 	wp.Start(paymentService, paymentQueue)
 	return &PaymentHandler{
 		workerPool: wp,
 	}
 }
 
-var paymentReqPool = sync.Pool{
-	New: func() interface{} {
-		return &types.PaymentRequest{}
-	},
-}
-
 func (ph *PaymentHandler) Payments(ctx *fasthttp.RequestCtx) {
-	paymentReq := paymentReqPool.Get().(*types.PaymentRequest)
-	defer paymentReqPool.Put(paymentReq)
+	bodyCopy := append([]byte(nil), ctx.PostBody()...)
 
-	*paymentReq = types.PaymentRequest{}
-
-	if err := sonic.Unmarshal(ctx.PostBody(), paymentReq); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		response := map[string]string{"error": "Invalid request body"}
-		if jsonData, err := sonic.Marshal(response); err == nil {
-			ctx.SetContentType("application/json")
-			ctx.SetBody(jsonData)
-		}
-		return
-	}
-
-	ph.workerPool.Jobs <- *paymentReq
-
-	ctx.SetStatusCode(fasthttp.StatusNoContent)
+	ph.workerPool.Jobs <- bodyCopy
 }
-
-// func validatePaymentRequest(req types.PaymentRequest) error {
-// 	// TODO: Implement validation logic
-// 	return nil
-// }
