@@ -22,6 +22,12 @@ func NewPaymentSummaryHandler(paymentCache *cache.PaymentCache) *PaymentSummaryH
 }
 
 func (psh *PaymentSummaryHandler) PaymentsSummary(ctx *fasthttp.RequestCtx) {
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		log.Printf("[PaymentsSummary]Execution took %s", elapsed)
+	}()
+
 	fromStr := string(ctx.QueryArgs().Peek("from"))
 	toStr := string(ctx.QueryArgs().Peek("to"))
 	var from, to time.Time

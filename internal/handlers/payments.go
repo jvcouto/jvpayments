@@ -5,6 +5,7 @@ import (
 	"jvpayments/internal/services"
 	"jvpayments/internal/types"
 	"log"
+	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
@@ -45,7 +46,7 @@ type PaymentHandler struct {
 }
 
 func NewPaymentHandler(paymentService *services.PaymentService, paymentQueue *queue.RedisPaymentQueue) *PaymentHandler {
-	wp := WorkerPool{NumWorkers: 400, Jobs: make(chan []byte, 100000)}
+	wp := WorkerPool{NumWorkers: 350, Jobs: make(chan []byte, 15000)}
 	wp.Start(paymentService, paymentQueue)
 	return &PaymentHandler{
 		workerPool: wp,
@@ -53,6 +54,12 @@ func NewPaymentHandler(paymentService *services.PaymentService, paymentQueue *qu
 }
 
 func (ph *PaymentHandler) Payments(ctx *fasthttp.RequestCtx) {
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		log.Printf("[Payments]Execution took %s", elapsed)
+	}()
+
 	bodyCopy := append([]byte(nil), ctx.PostBody()...)
 
 	ph.workerPool.Jobs <- bodyCopy

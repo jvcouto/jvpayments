@@ -1,10 +1,6 @@
 package main
 
 import (
-	"log"
-	"os"
-	"time"
-
 	"jvpayments/internal/cache"
 	"jvpayments/internal/config"
 	"jvpayments/internal/handlers"
@@ -12,6 +8,9 @@ import (
 	redis_client "jvpayments/internal/redis"
 	"jvpayments/internal/services"
 	workers "jvpayments/internal/workers/payment"
+	"log"
+	"os"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
@@ -34,7 +33,7 @@ func main() {
 	defer healthCheckService.Stop()
 
 	paymentWorkers := workers.NewPaymentWorker(paymentQueue, paymentService)
-	for range 5 {
+	for range 3 {
 		go paymentWorkers.Start()
 	}
 
@@ -60,11 +59,14 @@ func main() {
 	}
 
 	server := &fasthttp.Server{
-		Handler:           requestHandler,
-		TCPKeepalive:      true,
-		DisableKeepalive:  false,
-		ReduceMemoryUsage: true,
-		IdleTimeout:       60 * time.Second,
+		Handler:          requestHandler,
+		TCPKeepalive:     true,
+		DisableKeepalive: false,
+		IdleTimeout:      60 * time.Second,
+		ReadTimeout:      5 * time.Millisecond,
+		WriteTimeout:     5 * time.Millisecond,
+		ReadBufferSize:   4096, // prevent tiny reads
+		WriteBufferSize:  4096,
 	}
 
 	log.Printf("Server starting on Unix socket: %s", socketPath)
