@@ -29,9 +29,4 @@ func (dph *DbPurgeHandler) DbPurge(ctx *fasthttp.RequestCtx) {
 	}
 
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	response := map[string]string{"message": "Payment keys purged"}
-	if jsonData, err := sonic.Marshal(response); err == nil {
-		ctx.SetContentType("application/json")
-		ctx.SetBody(jsonData)
-	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"jvpayments/internal/cache"
 	"jvpayments/internal/config"
 	"jvpayments/internal/handlers"
@@ -10,12 +11,20 @@ import (
 	workers "jvpayments/internal/workers/payment"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/valyala/fasthttp"
 )
 
+var (
+	pathPayments = []byte("/payments")
+	pathSummary  = []byte("/payments-summary")
+	pathPurge    = []byte("/purge-payments")
+)
+
 func main() {
+	debug.SetGCPercent(200)
 	socketPath := os.Getenv("SOCKET_PATH")
 
 	config.LoadConfig()
@@ -42,20 +51,22 @@ func main() {
 	dbPurgeHandler := handlers.NewDbPurgeHandler(paymentCache)
 
 	requestHandler := func(ctx *fasthttp.RequestCtx) {
-		path := string(ctx.Path())
-		method := string(ctx.Method())
 
-		switch {
-		case method == "POST" && path == "/payments":
+		if bytes.Equal(ctx.Path(), pathPayments) {
 			paymentHandler.Payments(ctx)
-		case method == "GET" && path == "/payments-summary":
-			paymentSummaryHandler.PaymentsSummary(ctx)
-		case method == "POST" && path == "/purge-payments":
-			dbPurgeHandler.DbPurge(ctx)
-		default:
-			ctx.SetStatusCode(fasthttp.StatusNotFound)
-			ctx.SetBodyString("Not Found")
+			return
 		}
+		if bytes.Equal(ctx.Path(), pathSummary) {
+			paymentSummaryHandler.PaymentsSummary(ctx)
+			return
+		}
+		if bytes.Equal(ctx.Path(), pathPurge) {
+			dbPurgeHandler.DbPurge(ctx)
+			return
+		}
+
+		ctx.SetStatusCode(fasthttp.StatusNotFound)
+		ctx.SetBodyString("Not Found")
 	}
 
 	server := &fasthttp.Server{
@@ -65,7 +76,7 @@ func main() {
 		IdleTimeout:      60 * time.Second,
 		ReadTimeout:      5 * time.Millisecond,
 		WriteTimeout:     5 * time.Millisecond,
-		ReadBufferSize:   4096, // prevent tiny reads
+		ReadBufferSize:   4096,
 		WriteBufferSize:  4096,
 	}
 

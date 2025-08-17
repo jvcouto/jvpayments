@@ -5,7 +5,6 @@ import (
 	"jvpayments/internal/services"
 	"jvpayments/internal/types"
 	"log"
-	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
@@ -54,13 +53,5 @@ func NewPaymentHandler(paymentService *services.PaymentService, paymentQueue *qu
 }
 
 func (ph *PaymentHandler) Payments(ctx *fasthttp.RequestCtx) {
-	start := time.Now()
-	defer func() {
-		elapsed := time.Since(start)
-		log.Printf("[Payments]Execution took %s", elapsed)
-	}()
-
-	bodyCopy := append([]byte(nil), ctx.PostBody()...)
-
-	ph.workerPool.Jobs <- bodyCopy
+	ph.workerPool.Jobs <- append([]byte(nil), ctx.PostBody()...)
 }
